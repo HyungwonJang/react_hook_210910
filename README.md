@@ -525,3 +525,445 @@ const App = () => {
 const rootElement = document.getElementById("root");
 ReactDOM.render(<App />, rootElement);
 ```
+
+# useClick
+
+시작
+``` javascript
+import React, { useState, useEffect } from "react";
+import ReactDOM from "react-dom";
+
+const App = () => {
+  return (
+    <div className="App">
+      <div>Hi</div>
+    </div>
+  )
+}
+
+const rootElement = document.getElementById("root");
+ReactDOM.render(<App />, rootElement);
+```
+
+이 케이스에서는 레퍼런스를 만들어 보려고 함
+레퍼런스는 기본적으로 컴포넌트의 어떤 부분을 선택할 수 있는 것인데,
+예를 들자면 document.getElementByID()와 비슷한 것임
+
+``` javascript
+const App = () => {
+  const potato = useRef()
+  return (
+    <div className="App">
+      <div>Hi</div>
+      <input ref={potato} placeholder="la"/>
+      // 5초 뒤에 focus하도록 하고 싶음(난 3초 뒤에)
+    </div>
+  )
+}
+```
+그렇다면 이제 potato에 시간설정을 걸어줌
+
+``` javascript
+setTimeout(() => potato.current.focus(), 3000)
+```
+
+여기까지가 레퍼런스에 대한 이해
+
+이제 useClick을 시작
+
+``` javascript
+import React, { useState, useEffect } from "react";
+import ReactDOM from "react-dom";
+
+const App = () => {
+  return (
+    <div className="App">
+      <div>Hi</div>
+      <input ref={potato} placeholder="la"/>
+    </div>
+  )
+}
+
+const rootElement = document.getElementById("root");
+ReactDOM.render(<App />, rootElement);
+```
+
+``` javascript
+const useClick = (onClick) => {
+  const element = useRef()
+  return element;
+}
+```
+레퍼런스를 만들었고,
+
+``` javascript
+const App = () => {
+  const title = useClick()
+  return (
+    <div className="App">
+      <h1 ref={title}>Hi</h1>
+      // 이렇게 되면 title에 접근할 수 있음
+    </div>
+  )
+}
+```
+
+``` javascript
+const useClick = (onClick) => {
+  useEffect(() => {
+    if(element.current) {
+      element.current.addEventListener("click", onClick)
+    }
+  })
+  const element = useRef()
+  return element;
+}
+```
+
+여기까지 정리
+
+useClick을 사용해서 useRef()를 만들었고, 같은 레퍼런스를 return했음
+그리고 주어진 레퍼런스를 title에 넘겼고, 상호작용이 가능함
+
+이제 useEffect에선 레퍼런스 안에 element.current가 있는지 확인하는 것
+
+이제 onClick을 만들어 보자
+
+``` javascript
+const App = () => {
+  const sayHello = () => console.log("say Hello")
+  const title = useClick(sayHello)
+  return (
+    <div className="App">
+      <h1 ref={title}>Hi</h1>
+    </div>
+  )
+}
+```
+이 모든 것은 레퍼런스
+
+useEffect는 componentDidunmount 상태에서 작동하는데, 위의 경우는 component가 mount되었을 때 addEventListener을 추가함
+
+따라서 componentWillunMount일 때 addEventListener을 지워주어야 함
+
+useEffect에서 function을 return함으로서 이를 해결함
+
+``` javascript
+const useClick = (onClick) => {
+  useEffect(() => {
+    if(element.current) {
+      element.current.addEventListener("click", onClick)
+    } // useEffect가 mount일 때 작동
+    return () => {
+      if(element.current) {
+        element.current.removeEventListener("click", onClick)
+      } // useEffect가 unmount일때 작동
+    }
+  }, [])
+  const element = useRef()
+  return element;
+}
+```
+기본적으로는 useEffect가 mount되었을 때 이것을 call한다는 것.
+
+# useConfirm
+
+보통 useConfirm은 사용자가 무언가를 하기 전에 확인하는 작업
+사용자가 버튼을 클릭하면 확인 메세지를 보여주는 용도, 실행하려는 작업에 대해 한번 더 확인하는 작업이라고 생각하면 편함
+
+``` javascript
+import React, { useState, useEffect } from "react";
+import ReactDOM from "react-dom";
+
+const useConfirm = (message="", callback) => {
+  if(typeof callback !== "function") {
+    return;
+  }
+  // callback의 타입이 함수가 아니라면 그냥 return 한다.
+  // 이건 사실 필요는 없지만 함수형 프로그램을 이해하는 데 도움이 될 것.
+  const confirmAction = () => {
+    if(confirm(message)) {
+      callback()
+    }
+  }
+  return confirmAction;
+}
+
+const App = () => {
+  const DeleteWorld = () => console.log("Deleting the world...")
+  const confirmDelete = useConfirm("are you sure", DeleteWorld)
+  return (
+    <div className="App">
+      <div>Hi</div>
+      <button onClick={confirmDelete} >delete the world</button>
+    </div>
+  )
+}
+
+const rootElement = document.getElementById("root");
+ReactDOM.render(<App />, rootElement);
+```
+
+confirmDelete는 실제로 confirmAction이고 confirmAction을 부르면 브라우저에 있는 confirm에 갈 것이고 true라고 하면 callback이 실행되면서 DeleteWorld를 실행시킨다.
+
+또한 취소 함수를 만들 수 있음
+
+``` javascript
+const useConfirm = (message="", callback, rejection) => {
+  if(typeof callback !== "function") {
+    return;
+  }
+  const confirmAction = () => {
+    if(confirm(message)) {
+      callback()
+    } else {rejection()}
+  }
+  return confirmAction;
+}
+
+
+const App = () => {
+  const DeleteWorld = () => console.log("Deleting the world...")
+  const abort = () => console.log("Aborted")
+  const confirmDelete = useConfirm("are you sure", DeleteWorld, abort)
+  return (
+    <div className="App">
+      <div>Hi</div>
+      <button onClick={confirmDelete} >delete the world</button>
+    </div>
+  )
+}
+
+```
+
+이렇게 바꿈
+``` javascript
+
+const useConfirm = (message="", onConfirm, onCancel) => {
+  if(!onConfirm || typeof onConfirm !== "function") {
+    return;
+  }
+  if(onCancel && typeof onCancel !== "function") {
+    return;
+  }
+
+  const confirmAction = () => {
+    if(confirm(message)) {
+      onConfirm()
+    } else {onCancel()}
+  }
+  return confirmAction;
+}
+```
+
+
+# usePreventLeave
+
+보통 웹사이트에서 볼 수 있는데, 창을 닫을 때 경고메시지를 날리는 것
+
+(저장을 하지 않았다던가 하는)
+
+ ``` javascript
+import React, { useState, useEffect } from "react";
+import ReactDOM from "react-dom";
+
+const usePreventLeave = () => {
+  // 이건 hooks를 전혀 사용하지 않음
+  const listener = (event) => {
+    event.preventDefault();
+    event.returnValue = "";
+  }
+  const enablePrevent = () => window.addEventListener("beforeunload", listener)
+    // api에 뭔가를 보냈고 사람들이 닫지 않기를 원한다면 보호할 수 있게 끔 활성화하는 함수 하지만 api가 괜찮다는 응답을 하면 닫아도 됨
+  const disablePrevent = () => window.removeEventListener("beforeunload", listener)
+  return {enablePrevent, disablePrevent}
+}
+
+const App = () => {
+  const {enablePrevent, disablePrevent} = usePreventLeave()
+  return (
+    <div className="App">
+      <button onClick = {enablePrevent}>Protect</button>
+      <button onClick = {disablePrevent}>Unprotect</button>
+    </div>
+  )
+}
+
+const rootElement = document.getElementById("root");
+ReactDOM.render(<App />, rootElement);
+```
+
+window가 beforeunload이기 때문에 beforeunload는 window가 닫히기 전에 function을 실행시킴
+
+
+
+# useBeforeLeave
+
+마우스가 페이지를 벗어나면 생기는 함수, 페이지를 떠나지 말라는 등의 팝업창으로 활용 가능
+
+ ``` javascript
+import React, { useState, useEffect } from "react";
+import ReactDOM from "react-dom";
+
+const useBeforeLeave = (onBefore) => {
+  if (typeof onBefore !== "function") {
+    return;
+    // onBefore이 함수가 아니라면 아무 것도 하지 않음
+  }
+  const handle = () => {
+    // 실행시킬 함수 이름은 handle
+    onBefore()
+  }
+  useEffect(() => {
+    document.addEventListener("mouseleave", handle);
+    // componentWillUnMount일때는 이 이벤트를 지우자
+    return () => document.removeEventListener("mouseleave", handle)
+  }, [])
+  //한번만 하는 것을 원하기에 대괄호 삽입
+}
+
+const App = () => {
+  const begForLife = () => console.log("Pls don't leave")
+  useBeforeLeave(begForLife)
+  return (
+    <div className="App">
+      <div>Hi</div>
+    </div>
+  )
+}
+
+const rootElement = document.getElementById("root");
+ReactDOM.render(<App />, rootElement);
+```
+
+여기까지 완료, 이 다음부터는 최적화하는 작업
+
+ ``` javascript
+import React, { useState, useEffect } from "react";
+import ReactDOM from "react-dom";
+
+const useBeforeLeave = (onBefore) => {
+  if (typeof onBefore !== "function") {
+    return;
+  }
+  const handle = (event) => {
+    // 마우스가 어느 위치로 나가는 지 좌표값을 받아 작성
+    const {clientY} = event
+    if (clientY<=0) {
+      onBefore()
+    }
+  }
+  useEffect(() => {
+    document.addEventListener("mouseleave", handle);
+    return () => document.removeEventListener("mouseleave", handle)
+  }, [])
+}
+
+const App = () => {
+  const begForLife = () => console.log("Pls don't leave")
+  useBeforeLeave(begForLife)
+  return (
+    <div className="App">
+      <div>Hi</div>
+    </div>
+  )
+}
+
+const rootElement = document.getElementById("root");
+ReactDOM.render(<App />, rootElement);
+```
+
+# useFadeIn
+
+생각보다 꽤 간단한데,
+
+기본적으로 하나의 element를 가지고, 서서히 나타나게 만들 것임.
+
+ ``` javascript
+import React, { useState, useEffect } from "react";
+import ReactDOM from "react-dom";
+
+const useFadeIn = (duration=1, delay=0) => {
+  // duration은 애니메이션 효과 시간설정
+  if (typeof duration !== "number" || typeof delay !== "number"){
+    return;
+  }
+  const element = useRef()
+  useEffect(() => {
+    if (element.currnet) {
+      const {current} = element;
+      current.style.transition = `opacity ${duration}s ease-in-out ${delay}s`
+      current.style.opacity = 1
+    }
+  }, [])
+  // componentDidMount에서만 동작할 수 있도록, dependency를 비워둘 것
+  return {ref: element, style: {opacity:0}}
+}
+
+const App = () => {
+  const FadeInH1 = useFadeIn(2, 5) // 5초 딜레이 후 2초 동안 실행
+  const FadeInP = useFadeIn(4, 5) // 5초 딜레이 후 4초동안 실행
+  return (
+    <div className="App">
+      <h1 {...FadeInH1}>Hi</h1>
+      <p {...FadeInP}>asdfasdfadsf</p>
+    </div>
+    // spred를 활용하여 ref: element, style: {opacity:0}를 useFadeIn 안으로 넣고, h1 태그 안에서는 지운다.
+  )
+}
+
+const rootElement = document.getElementById("root");
+ReactDOM.render(<App />, rootElement);
+```
+
+# useNetwork
+
+useNetwork는 navigator가 online또는 offline이 되는 것을 막아 줄 것임.
+
+ ``` javascript
+import React, { useState, useEffect } from "react";
+import ReactDOM from "react-dom";
+
+const useNetwork = onChange => {
+  const [status, setStatus] = useState(navigator.onLine);
+  // navigator.online을 설정함으로서 true 또는 false를 말할 것
+  const handleChange = () => {
+    // 두 개를 하나의 onChange로 바꾸어 사용하는 것이 나을 듯
+    if(typeof onChagne === "function") {
+      onChange(navigator.onLine)
+    }
+    setStatus(navigator.onLine)
+  }
+  useEffect(() => {
+    window.addEventListener("online", handleChange)
+    window.addEventListener("offline", handleChange)
+    () => {
+      window.removeEventListener("online", handleChange)
+      window.removeEventListener("offline", handleChange)
+      // componentWillUnmount일 때 이벤트를 지워줄 필요가 있음
+    }
+  }, [])
+  return status
+  // 네트워크의 상태를 리턴
+  }
+
+const App = () => {
+  const handleNetworkChange = (online) => {
+    // 이 함수는 아래 h1태그 내용처럼 하기 싫을 때, network가 바뀔 때 함수가 작동되도록 하고 싶을 때
+    console.log(online?"we just went online":"we are offline")
+  }
+  const onLine = useNetwork(handleNetworkChange)
+    return (
+    <div className="App">
+      <h1>{onLine ? "Online" : "Offline"}</h1>
+    </div>
+  )
+}
+
+const rootElement = document.getElementById("root");
+ReactDOM.render(<App />, rootElement);
+```
+
+# useScroll
+
+
