@@ -967,3 +967,285 @@ ReactDOM.render(<App />, rootElement);
 # useScroll
 
 
+## 애플 공홈 보면 이해 가능
+
+ ``` javascript
+import React, { useState, useEffect } from "react";
+import ReactDOM from "react-dom";
+
+const useScroll = () => {
+  const [state, setState] = useState({
+    x: 0,
+    y: 0
+  });
+  const onScroll = (event) => {
+    setState({y:window.scrollY, x:window.scrollX});
+  };
+  useEffect(() => {
+    window.addEventListener("scroll", onScroll);
+    return () => window.removeEventLinstener("scroll", onScroll);
+  }, []);
+  return state;
+};
+
+const App = () => {
+  const { y } = useScroll();
+  return (
+    <div className="App" style={{ height: "1000vh" }}>
+      <h1 style={{ position: "fixed", color: y > 100 ? "red" : "blue" }}>Hi</h1>
+    </div>
+  );
+};
+
+const rootElement = document.getElementById("root");
+ReactDOM.render(<App />, rootElement);
+```
+
+# useFullScreen
+
+ ``` javascript
+import React, { useState, useEffect, useRef } from "react";
+import ReactDOM from "react-dom";
+
+const useFullscreen = () => {
+  const element = useRef();
+  const triggerFull = () => {
+    if (element.current) {
+      element.current.requestFullscreen();
+    }
+  };
+  const exitFull = () => {
+    document.exitFullscreen();
+  };
+  return { element, triggerFull, exitFull };
+};
+
+const App = () => {
+  const { element, triggerFull, exitFull } = useFullscreen();
+  return (
+    <div className="App" style={{ height: "1000vh" }}>
+      <div ref={element}>
+        <img
+          src="https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcTNbT7uca4Ztlqvmi1FM4ujJEa3aJhQLi7ssA&usqp=CAU"
+          alt="bus"
+        />
+        <button onClick={exitFull}>Exit FullScreen</button>
+      </div>
+      <button onClick={triggerFull}>Make FullScreen</button>
+    </div>
+  );
+};
+
+const rootElement = document.getElementById("root");
+ReactDOM.render(<App />, rootElement);
+
+```
+
+
+이것을 usecallback을 이용하여 사용하고 싶을 때
+
+exitFull이 Fullscreen으로 만들어 주는 역할을 하게 되면 (triggerFull은) nonFullscreen으로 만들어 주는 함수가 되도록
+
+```javascript
+const useFullscreen = (callback) => {
+  const element = useRef();
+  const triggerFull = () => {
+    if (element.current) {
+      element.current.requestFullscreen();
+      if (callback && typeof callback === "fuction") {
+        callback(true)
+      }
+    }
+  };
+  const exitFull = () => {
+    document.exitFullscreen();
+      if (callback && typeof callback === "fuction") {
+        callback(false)
+      }
+
+  };
+  return { element, triggerFull, exitFull };
+};
+
+const App = () => {
+  const onFullSc = (isFull) => {
+    // isFull은 boolean타입임
+    console.log(isFull ? "We are Full" : "We are small");
+  }
+  const { element, triggerFull, exitFull } = useFullscreen(onFullSc);
+  return (
+    <div className="App" style={{ height: "1000vh" }}>
+      <div ref={element}>
+
+```
+
+
+# useNotification
+
+notification API를 사용하여 코드를 짬
+
+ ``` javascript
+import React, { useState, useEffect, useRef } from "react";
+import ReactDOM from "react-dom";
+
+const useNotification = (title, option) => {
+  if (!("Notification" in window)) {
+    return;
+  }
+  // window에 notification이 없다면 return은 없음
+  const fireNotif = () => {
+    if (Notification.permission !== "granted") {
+      Notification.requestPermission().then((permission) => {
+        if (permission === "granted") {
+          new Notification(title, option);
+        } else {
+          return;
+        }
+      });
+      // permission은 알림의 종류를 알려줌. 거부했는지 아닌지
+    } else {
+      new Notification(title, option);
+      // options로 하면 왜 오류가 나는지
+    }
+  };
+  return fireNotif;
+};
+
+const App = () => {
+  const triggerNotif = useNotification("Can I steal your Kimchi?", {
+    body: "I love Kimchi"
+  });
+  return (
+    <div className="App" style={{ height: "1000vh" }}>
+      <button onClick={triggerNotif}>Hi</button>
+    </div>
+  );
+};
+
+const rootElement = document.getElementById("root");
+ReactDOM.render(<App />, rootElement);
+
+```
+
+
+# useAxios
+
+```javascript
+
+import ReactDOM from "react-dom";
+import useAxios from "./useAxios";
+
+const App = () => {
+  const { loading, data, error } = useAxios({
+    url: "https://yts.mx/api/v2/list_movies.json"
+  });
+  console.log(
+    `loading:${loading}\nData:${JSON.stringify(data)}\nError:${error}\n`
+  );
+  return (
+    <div className="App" style={{ height: "1000vh" }}>
+      <h1>Hello</h1>
+    </div>
+  );
+};
+
+const rootElement = document.getElementById("root");
+ReactDOM.render(<App />, rootElement);
+```
+
+```javascript
+import React, { useState, useEffect, useRef } from "react";
+
+
+import defaultAxios from "axios";
+import { useEffect, useState } from "react";
+
+const useAxios = (opts, axiosInstance = defaultAxios) => {
+  const [state, setState] = useState({
+    loading: true,
+    error: null,
+    data: null
+  });
+  if (!opts.url) {
+    return;
+  }
+  useEffect(() => {
+    axiosInstance(opts)
+      .then((data) => {
+        setState({
+          ...state,
+          loading: false,
+          data
+        });
+      })
+      .catch((error) => {
+        setState({ ...state, loading: false, error });
+      });
+  }, []);
+  return state;
+};
+
+export default useAxios;
+```
+
+refetch를 이용하는 방법(useEffect를 다시 사옹하게 하는)
+
+```javascript
+import ReactDOM from "react-dom";
+import useAxios from "./useAxios";
+
+const App = () => {
+  const { loading, data, error, refetch } = useAxios({
+    url: "https://yts.mx/api/v2/list_movies.json"
+  });
+  console.log(
+    `loading:${loading}\nData:${JSON.stringify(data)}\nError:${error}\n`
+  );
+  return (
+    <div className="App" style={{ height: "1000vh" }}>
+      <h1> {data && data.status} </h1>
+      <h2> {loading && "loading"} </h2>
+      <button onClick={refetch}>refetch</button>
+    </div>
+  );
+};
+
+const rootElement = document.getElementById("root");
+ReactDOM.render(<App />, rootElement);
+```
+```javascript
+import defaultAxios from "axios";
+import { useEffect, useState } from "react";
+
+const useAxios = (opts, axiosInstance = defaultAxios) => {
+  const [state, setState] = useState({
+    loading: true,
+    error: null,
+    data: null
+  });
+  const [trigger, setTrigger] = useState(0);
+  if (!opts.url) {
+    return;
+  }
+  const refetch = () => {
+    setState({ ...state, loading: true });
+    setTrigger(Date.now());
+  };
+  useEffect(() => {
+    axiosInstance(opts)
+      .then((data) => {
+        setState({
+          ...state,
+          loading: false,
+          data
+        });
+      })
+      .catch((error) => {
+        setState({ ...state, loading: false, error });
+      });
+  }, [trigger]);
+  return { ...state, refetch };
+};
+
+export default useAxios;
+```
