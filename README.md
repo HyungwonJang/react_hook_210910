@@ -1131,13 +1131,13 @@ ReactDOM.render(<App />, rootElement);
 # useAxios
 
 ```javascript
-
 import ReactDOM from "react-dom";
 import useAxios from "./useAxios";
 
 const App = () => {
   const { loading, data, error } = useAxios({
     url: "https://yts.mx/api/v2/list_movies.json"
+    // url이 옵션으로 들어가고, instance는 설정하지 않음(패키지 기본값으로 설정됨)
   });
   console.log(
     `loading:${loading}\nData:${JSON.stringify(data)}\nError:${error}\n`
@@ -1155,22 +1155,24 @@ ReactDOM.render(<App />, rootElement);
 
 ```javascript
 import React, { useState, useEffect, useRef } from "react";
-
-
 import defaultAxios from "axios";
 import { useEffect, useState } from "react";
 
 const useAxios = (opts, axiosInstance = defaultAxios) => {
+  // 기본값으로 axiosClient를 요청함, axios는 약간의 customization과 configuration을 허용함 예를 들면 디폴트 url을 설정한다던가 하는 등의. instance를 만들 수 있고 따로 설정이 없다면 axios 패키지에서 기본값으로 설정됨
   const [state, setState] = useState({
     loading: true,
     error: null,
     data: null
   });
   if (!opts.url) {
+    // 옵션 안에 url이 없다면 아무것도 return하지 않는다.
     return;
   }
   useEffect(() => {
+    // useEffect는 axios를 부르지만, update를 하지 않는다.
     axiosInstance(opts)
+    // axiosInstance를 설정하고, 옵션인 configuration을 전달해 줄것임
       .then((data) => {
         setState({
           ...state,
@@ -1188,7 +1190,7 @@ const useAxios = (opts, axiosInstance = defaultAxios) => {
 export default useAxios;
 ```
 
-refetch를 이용하는 방법(useEffect를 다시 사옹하게 하는)
+refetch를 이용하는 방법(버튼을 사용해 useEffect를 다시 사용하게 하는)
 
 ```javascript
 import ReactDOM from "react-dom";
@@ -1230,6 +1232,7 @@ const useAxios = (opts, axiosInstance = defaultAxios) => {
   const refetch = () => {
     setState({ ...state, loading: true });
     setTrigger(Date.now());
+    // Date함수를 통해 랜덤한 숫자로 바꾸고, trigger가 바뀌면 useEffect를 업데이트 하게 되고, state와 refetch를 다시 return 함 
   };
   useEffect(() => {
     axiosInstance(opts)
@@ -1244,6 +1247,8 @@ const useAxios = (opts, axiosInstance = defaultAxios) => {
         setState({ ...state, loading: false, error });
       });
   }, [trigger]);
+  // useEffect의 dependency에 무엇인가가 채워진다면 access request를 다시 할 것임, update를 할 수 있음
+  // useEffect는 trigger를 지켜볼 것이고, 이것이 바뀌게 된다면 ...state와 refetch함수를 같이 return 함
   return { ...state, refetch };
 };
 
